@@ -50,7 +50,7 @@ export class CameraController {
     this.controls.addEventListener('start', interrupt);
     element.addEventListener('wheel', interrupt, { passive: true });
   }
-  private zoomFor(id: FocusId): number { return Math.min(1, this.camera.aspect / (id === 'overview' ? 1.55 : 0.82)); }
+  private zoomFor(id: FocusId): number { return Math.min(id === 'overview' ? 1.1 : 1, this.camera.aspect / (id === 'overview' ? 1.2 : 0.82)); }
   private captureIdle(): void { this.idlePosition.copy(this.camera.position); this.idleLook.copy(this.controls.target); this.idleTime = 0; }
   flyTo(id: FocusId): void {
     this.focus = id;

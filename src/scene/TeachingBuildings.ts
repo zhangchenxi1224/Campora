@@ -53,7 +53,7 @@ export function createTeachingBuildings(): THREE.Group {
     windows.push({ position: new THREE.Vector3(-8.4 + i * 2.02, 2.15 + i * .18, -5.08), width: 1.68, height: 1.7 });
     b.box([2.05, .25, 1.7], [-8.4 + i * 2.02, 4.95 + i * .12, -7.1], flatRoof);
   }
-  for (let row = 0; row < 2; row++) for (let col = 0; col < 6; col++) windows.push({ position: new THREE.Vector3(6.82, 2.55 + row * 2.85, -15.6 + col * 2.5), rotation: -Math.PI / 2, width: 1.6, height: 1.8 });
+  for (let row = 0; row < 2; row++) for (let col = 0; col < 6; col++) for (const side of [-1, 1]) windows.push({ position: new THREE.Vector3(10 + side * 3.18, 2.55 + row * 2.85, -15.6 + col * 2.5), rotation: side * Math.PI / 2, width: 1.6, height: 1.8 });
   b.box([13.9, .38, 3.2], [-2.8, 4.57, -3.4], fins, .05);
   for (const x of [-8.8, 2.8]) b.box([.3, 4.3, .35], [x, 2.37, -2.6], bronze);
   for (const x of [-7, -3.7, -.4, 2]) b.box([.36, .05, .36], [x, 4.33, -2.95], glowMat('#ffbf79', 1.2));
@@ -73,7 +73,7 @@ export function createTeachingBuildings(): THREE.Group {
 function addBicycles(b: ModelBuilder, metal: THREE.Material): void {
   const rubber = makeMat('#303c3c'), frame = makeMat('#879793');
   for (let i = 0; i < 9; i++) {
-    const x = -8 + i * 1.7, z = 33.7;
+    const x = -8 + i * 1.7, z = 36.4;
     for (const dx of [-.51, .51]) b.add(new THREE.TorusGeometry(.33, .045, 5, 12), rubber, x + dx, .46, z);
     b.line([new THREE.Vector3(x - .51, .46, z), new THREE.Vector3(x - .14, .89, z), new THREE.Vector3(x + .23, .47, z), new THREE.Vector3(x - .51, .46, z)], .04, frame);
     b.line([new THREE.Vector3(x - .14, .89, z), new THREE.Vector3(x + .35, .95, z), new THREE.Vector3(x + .51, .46, z)], .04, frame);

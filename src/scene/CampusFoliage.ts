@@ -47,6 +47,7 @@ export class CampusFoliage {
     parent.add(shadows);
     const leafMat = makeMat('#ffffff', true);
     leafMat.vertexColors = true;
+    leafMat.bumpMap = null;
     const snowShader = leafMat.onBeforeCompile;
     leafMat.onBeforeCompile = (shader, renderer) => {
       snowShader.call(leafMat, shader, renderer);
@@ -55,7 +56,7 @@ export class CampusFoliage {
       shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\ntransformed.x+=sin(uWindTime*1.15+instanceMatrix[3].x*.27+instanceMatrix[3].z*.19)*.07*(position.y+1.4);');
     };
     leafMat.customProgramCacheKey = () => 'wind-snow-leaves';
-    const canopyGeo = new THREE.IcosahedronGeometry(1, 2);
+    const canopyGeo = new THREE.IcosahedronGeometry(1, 1);
     const p = canopyGeo.attributes.position;
     for (let i = 0; i < p.count; i++) {
       const factor = 1 + Math.sin(p.getX(i) * 9 + p.getY(i) * 7 + p.getZ(i) * 3) * 0.045;

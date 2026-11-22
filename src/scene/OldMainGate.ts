@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { ModelBuilder, addRoof, addPlaque } from './architecture';
-import { makeMat, glowMat } from '../materials/proceduralTextures';
+import { makeMat, glowMat, lampGlows } from '../materials/proceduralTextures';
 
 export function createOldMainGate(): THREE.Group {
   const b = new ModelBuilder();
@@ -27,11 +27,16 @@ export function createOldMainGate(): THREE.Group {
     b.line(curve, 0.18, roof);
     for (const x of [sign * 9.1, sign * 3.5]) {
       b.cylinder(0.08, 0.12, 2.6, [x, 1.7, 1.55], metal, 6);
-      b.box([0.6, 0.8, 0.6], [x, 3.3, 1.55], light, 0.1);
+      b.box([0.48, 0.72, 0.48], [x, 3.3, 1.55], light, 0.06);
+      for (const dx of [-.27, .27]) for (const dz of [-.27, .27]) b.box([.055, .85, .055], [x + dx, 3.3, 1.55 + dz], metal);
       b.add(new THREE.ConeGeometry(0.52, 0.35, 4).rotateY(Math.PI / 4), metal, x, 3.88, 1.55);
       b.box([0.72, 0.13, 0.72], [x, 2.9, 1.55], metal);
     }
   }
-  addPlaque(b, '复旦大学', 5.55, 1.23, [0, 5.58, 1.02]);
-  return b.finish();
+  b.box([6.06, 1.62, .33], [0, 5.58, 1.05], makeMat('#6e4a36'));
+  b.box([5.84, 1.43, .15], [0, 5.58, 1.24], makeMat('#b99765'));
+  addPlaque(b, '复旦大学', 5.5, 1.14, [0, 5.58, 1.34], true);
+  const group = b.finish();
+  lampGlows(group, [[-9.1, 3.3, 1.55], [9.1, 3.3, 1.55], [-3.5, 3.3, 1.55], [3.5, 3.3, 1.55]], 3.2);
+  return group;
 }

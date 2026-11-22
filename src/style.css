@@ -1,3 +1,4 @@
+@font-face { font-family: "Ma Shan Zheng"; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/guanghua-title.woff') format('woff'); }
 :root {
   --site-bg: #050814; --site-fg: #e9e4d6; --site-accent: #dcb779; --site-on-accent: #1a1b23;
   --site-surface: #0b101c; --site-muted: #a7a8aa; --site-border: #ffffff25;
@@ -16,6 +17,8 @@ canvas:focus-visible { outline: none; }
 .glass { background: color-mix(in srgb, var(--site-surface) 72%, transparent); border: 1px solid var(--site-border); backdrop-filter: blur(20px) saturate(110%); box-shadow: 0 8px 36px #0002, inset 0 1px 0 #ffffff04; border-radius: var(--site-radius); }
 .ui-element { transition: opacity calc(350ms * var(--site-motion)), transform calc(350ms * var(--site-motion)); }
 .title { position: absolute; left: calc(42px * var(--site-space)); top: calc(35px * var(--site-space)); display: flex; align-items: center; gap: 15px; pointer-events: none; text-shadow: 0 2px 18px #0008; }
+:root[data-time="morning"] .title { color: #37483c; text-shadow: 0 1px 16px #eee5cb80; }
+:root[data-time="morning"] .title svg { color: #8e7347; }
 .title svg { width: 26px; height: 36px; color: var(--site-accent); opacity: .8; }
 h1 { margin: 0; font-family: "Ma Shan Zheng", var(--site-font); font-size: calc(37px * var(--site-type)); font-weight: 400; letter-spacing: 6px; line-height: 1.2; }
 .atmosphere { position: absolute; top: calc(34px * var(--site-space)); right: calc(38px * var(--site-space)); z-index: 5; }

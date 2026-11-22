@@ -34,13 +34,13 @@ function pavingTexture(): THREE.CanvasTexture {
 export function createDioramaBase(parent: THREE.Group): { lawn: THREE.Group; grassMaterial: THREE.MeshStandardMaterial; lamps: THREE.PointLight[] } {
   const walnut = makeMat('#8b6550');
   for (const [inset, depth, y, material] of [[0, 3.4, -4.3, walnut], [-.5, .65, -5.05, makeMat('#26333b')], [-.2, .16, -.89, makeMat('#a18c5d')], [.4, .55, -.8, makeMat('#495a44', true)]] as const) {
-    const geometry = new THREE.ExtrudeGeometry(islandShape(inset), { depth, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: .45, bevelThickness: .12 });
+    const geometry = new THREE.ExtrudeGeometry(islandShape(inset, inset === .4), { depth, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: .45, bevelThickness: .12 });
     geometry.rotateX(-Math.PI / 2).translate(0, y, 0);
     const mesh = new THREE.Mesh(geometry, material); mesh.castShadow = mesh.receiveShadow = true; parent.add(mesh);
   }
   const grassMaterial = makeMat('#879f70', true);
   grassMaterial.vertexColors = true;
-  const ground = new THREE.ShapeGeometry(islandShape(.7), 24);
+  const ground = new THREE.ShapeGeometry(islandShape(.7, true), 24);
   ground.rotateX(-Math.PI / 2);
   const pos = ground.attributes.position;
   const colors = [];
@@ -138,13 +138,13 @@ export function createDioramaBase(parent: THREE.Group): { lawn: THREE.Group; gra
   const benchShadows = contactShadows(benches.length, .36);
   benches.forEach(([x, z, angle], i) => { dummy.position.set(x, .14, z); dummy.rotation.set(0, angle, 0); dummy.scale.set(4, 1, 2.4); dummy.updateMatrix(); benchShadows.setMatrixAt(i, dummy.matrix); });
   parent.add(benchShadows);
-  const lamps = [[0, 3, 38], [-27, 3, 18], [22, 3, 12], [32, 4, 29], [30, 4, -3], [0, 4, -20]].map(p => {
+  const lamps = [[0, 3, 38], [-27, 3, 18], [32, 4, 29], [0, 4, -20], [-28, 3.8, -1.8]].map(p => {
     const light = new THREE.PointLight('#ffca83', 0, 4.2, 2); light.position.set(p[0], p[1], p[2]); parent.add(light); return light;
   });
   return { lawn, grassMaterial, lamps };
 }
 
-function islandShape(inset: number): THREE.Shape {
+function islandShape(inset: number, pond = false): THREE.Shape {
   const r = 58 - inset, c = 33 - inset;
   const shape = new THREE.Shape();
   shape.moveTo(-c, -r); shape.lineTo(c, -r); shape.quadraticCurveTo(c + 4, -r, c + 7, -r + 3);
@@ -155,5 +155,13 @@ function islandShape(inset: number): THREE.Shape {
   shape.lineTo(-r + 3, c + 7); shape.quadraticCurveTo(-r, c + 4, -r, c);
   shape.lineTo(-r, -c); shape.quadraticCurveTo(-r, -c - 4, -r + 3, -c - 7);
   shape.lineTo(-c - 7, -r + 3); shape.quadraticCurveTo(-c - 4, -r, -c, -r); shape.closePath();
+  if (pond) {
+    const hole = new THREE.Path();
+    for (let i = 0; i <= 48; i++) {
+      const a = i / 48 * Math.PI * 2, x = -32 + Math.cos(a) * (8.9 + Math.sin(a * 3) * .55), y = -22 + Math.sin(a) * (5.8 + Math.cos(a * 4) * .4);
+      if (i === 0) hole.moveTo(x, y); else hole.lineTo(x, y);
+    }
+    hole.closePath(); shape.holes.push(hole);
+  }
   return shape;
 }

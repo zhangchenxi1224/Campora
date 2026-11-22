@@ -6,6 +6,7 @@ export function createGuanghuaTowers(): THREE.Group {
   const b = new ModelBuilder();
   const stone = makeMat('#e4d6bb', true), trim = makeMat('#f0e7d2', true), recess = makeMat('#a8aa99');
   const darkStone = makeMat('#c3b79e', true), roof = makeMat('#929b91', true);
+  trim.bumpMap = null;
   stone.bumpMap = masonryTexture('#ddd5bf', '#bfb7a0'); stone.bumpScale = .04;
   const uplight = glowMat('#fbc17d', .5);
   b.box([30, .6, 15], [0, .3, 0], darkStone, .22);
@@ -24,7 +25,8 @@ export function createGuanghuaTowers(): THREE.Group {
     for (const side of [-1, 1]) {
       for (let col = 0; col < 6; col++) b.box([0.23, 23, 0.65], [x - 2.98 + col * 1.19, 12.7, side * 4.8], trim, 0.02);
       for (let floor = 1; floor < 25; floor++) b.box([6.95, 0.075, 0.15], [x, 1.32 + floor * 0.92, side * 4.76], darkStone, 0.015);
-      b.box([0.28, 24, 9.65], [x + side * 3.35, 12.6, 0], trim, 0.025);
+      for (const z of [-4.5, 4.5]) b.box([.33, 24, .38], [x + side * 3.45, 12.6, z], trim, .025);
+      for (const z of [-3.65, -1.3, 1.3, 3.65]) b.box([.33, 23, .16], [x + side * 3.45, 12.7, z], trim, .02);
     }
     b.box([4.4, 5.6, 10.5], [sign * 13.1, 3.1, 0.6], stone);
     b.box([4.9, 0.33, 11], [sign * 13.1, 6.02, 0.6], trim);
