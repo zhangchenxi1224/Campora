@@ -33,7 +33,7 @@ function pavingTexture(): THREE.CanvasTexture {
 
 export function createDioramaBase(parent: THREE.Group): { lawn: THREE.Group; grassMaterial: THREE.MeshStandardMaterial; lamps: THREE.PointLight[] } {
   const walnut = makeMat('#8b6550');
-  for (const [inset, depth, y, material] of [[0, 3.4, -4.3, walnut], [-.5, .65, -5.05, makeMat('#26333b')], [-.2, .16, -.89, makeMat('#a18c5d')], [.4, .67, -.71, makeMat('#495a44', true)]] as const) {
+  for (const [inset, depth, y, material] of [[0, 3.4, -4.3, walnut], [-.5, .65, -5.05, makeMat('#26333b')], [-.2, .16, -.89, makeMat('#a18c5d')], [.4, .55, -.8, makeMat('#495a44', true)]] as const) {
     const geometry = new THREE.ExtrudeGeometry(islandShape(inset), { depth, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: .45, bevelThickness: .12 });
     geometry.rotateX(-Math.PI / 2).translate(0, y, 0);
     const mesh = new THREE.Mesh(geometry, material); mesh.castShadow = mesh.receiveShadow = true; parent.add(mesh);

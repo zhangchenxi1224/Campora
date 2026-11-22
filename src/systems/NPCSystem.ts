@@ -1,12 +1,13 @@
 import * as THREE from 'three';
 import { pathNodes, pathEdges, shortestPath } from '../config/pathGraph';
-import { makeMat, seededRandom } from '../materials/proceduralTextures';
+import { makeMat, seededRandom, contactShadows } from '../materials/proceduralTextures';
 
 interface Walker { position: THREE.Vector3; from: number; to: number; route: number[]; progress: number; speed: number; phase: number; heading: number; lane: number; pause: number }
 export class NPCSystem {
   readonly count = 35;
   readonly walkers: Walker[] = [];
   private readonly random = seededRandom(771);
+  private readonly shadows = contactShadows(this.count, .4);
   private readonly body: THREE.InstancedMesh;
   private readonly heads: THREE.InstancedMesh;
   private readonly hair: THREE.InstancedMesh;
@@ -17,6 +18,7 @@ export class NPCSystem {
   private readonly facing = new THREE.Quaternion();
   private readonly up = new THREE.Vector3(0, 1, 0);
   constructor(parent: THREE.Group) {
+    parent.add(this.shadows);
     this.body = new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.18, 0.32, 2, 6), makeMat('#ffffff'), this.count);
     this.heads = new THREE.InstancedMesh(new THREE.SphereGeometry(0.16, 7, 5), makeMat('#e1ba96'), this.count);
     this.hair = new THREE.InstancedMesh(new THREE.SphereGeometry(0.165, 7, 5, 0, Math.PI * 2, 0, Math.PI * 0.55), makeMat('#514941'), this.count);
@@ -58,7 +60,7 @@ export class NPCSystem {
             walker.route = shortestPath(walker.from, destination).slice(1);
           }
           walker.to = walker.route.shift()!;
-          if ([3, 8, 12, 18, 28].includes(walker.from) && this.random() < 0.2) walker.pause = 3 + this.random() * 3;
+          if ([3, 8, 12, 18, 28, 35, 36, 39].includes(walker.from) && this.random() < 0.2) walker.pause = 3 + this.random() * 3;
         }
       }
       const a = pathNodes[walker.from], b = pathNodes[walker.to];
@@ -87,7 +89,9 @@ export class NPCSystem {
       place(this.bags, i, 0, 0.64, -0.21);
       place(this.legs, i * 2, -0.095, 0.23, step * 0.05, step * 0.4);
       place(this.legs, i * 2 + 1, 0.095, 0.23, -step * 0.05, -step * 0.4);
+      this.dummy.position.set(walker.position.x, .145, walker.position.z); this.dummy.rotation.set(0, 0, 0); this.dummy.scale.set(.9, 1, .7); this.dummy.updateMatrix(); this.shadows.setMatrixAt(i, this.dummy.matrix);
     });
+    this.shadows.instanceMatrix.needsUpdate = true;
     [this.body, this.heads, this.hair, this.bags, this.legs].forEach(mesh => mesh.instanceMatrix.needsUpdate = true);
   }
 }

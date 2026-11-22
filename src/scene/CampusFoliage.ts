@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { makeMat, seededRandom, environmentUniforms } from '../materials/proceduralTextures';
+import { makeMat, seededRandom, environmentUniforms, contactShadows } from '../materials/proceduralTextures';
 import { pathNodes, pathEdges } from '../config/pathGraph';
 import type { Season } from '../config/atmospherePresets';
 
@@ -17,7 +17,8 @@ export class CampusFoliage {
   constructor(parent: THREE.Group) {
     const random = seededRandom(557), trees: Tree[] = [];
     const valid = (x: number, z: number) => {
-      const exclusions = [[0, -4, 37, 24], [0, -26, 35, 18], [-28, -8, 19, 16], [0, 36, 36, 8], [-30, 22, 25, 21], [31, -28, 12, 12], [44, -26, 12, 16], [32, -41, 16, 11], [-30, -35, 16, 12], [32, 30, 16, 12]];
+      if (Math.abs(x) + Math.abs(z) > 85) return false;
+      const exclusions = [[0, -4, 37, 24], [0, -26, 35, 18], [-28, -8, 19, 16], [0, 36, 36, 8], [-30, 22, 25, 21], [32, 24, 28, 26], [33, -14, 29, 26], [32, 5, 25, 18]];
       for (const [cx, cz, w, d] of exclusions) if (Math.abs(x - cx) < w / 2 && Math.abs(z - cz) < d / 2) return false;
       for (const [a, b] of pathEdges) {
         const p = pathNodes[a], q = pathNodes[b], dx = q.x - p.x, dz = q.z - p.z;
@@ -41,7 +42,11 @@ export class CampusFoliage {
       if (tree.species === 2) this.coniferTrees.push(tree); else this.crownTrees.push(tree);
     });
     trunks.castShadow = true; parent.add(trunks);
+    const shadows = contactShadows(trees.length, .37);
+    trees.forEach((tree, i) => { dummy.position.set(tree.x, .08, tree.z); dummy.rotation.set(0, 0, 0); dummy.scale.set(3.6 * tree.scale, 1, 3.6 * tree.scale); dummy.updateMatrix(); shadows.setMatrixAt(i, dummy.matrix); });
+    parent.add(shadows);
     const leafMat = makeMat('#ffffff', true);
+    leafMat.vertexColors = true;
     const snowShader = leafMat.onBeforeCompile;
     leafMat.onBeforeCompile = (shader, renderer) => {
       snowShader.call(leafMat, shader, renderer);
@@ -56,14 +61,18 @@ export class CampusFoliage {
       const factor = 1 + Math.sin(p.getX(i) * 9 + p.getY(i) * 7 + p.getZ(i) * 3) * 0.045;
       p.setXYZ(i, p.getX(i) * factor, p.getY(i) * factor, p.getZ(i) * factor);
     }
+    const shades: number[] = [];
+    for (let i = 0; i < p.count; i++) { const shade = .65 + (p.getY(i) + 1) * .16 + Math.abs(p.getX(i)) * .05; shades.push(shade * .96, shade, shade * .93); }
+    canopyGeo.setAttribute('color', new THREE.Float32BufferAttribute(shades, 3));
     canopyGeo.computeVertexNormals();
-    this.crowns = new THREE.InstancedMesh(canopyGeo, leafMat, this.crownTrees.length * 4);
+    this.crowns = new THREE.InstancedMesh(canopyGeo, leafMat, this.crownTrees.length * 6);
     this.crownTrees.forEach((tree, i) => {
-      for (let part = 0; part < 4; part++) {
-        const angle = part * 2.1 + tree.tint * 7, s = tree.scale;
-        dummy.position.set(tree.x + (part === 3 ? 0 : Math.cos(angle) * 0.75 * s), (part === 3 ? 4.15 : 3.15) * s, tree.z + (part === 3 ? 0 : Math.sin(angle) * 0.72 * s));
-        const r = (part === 3 ? 1.34 : 1.28) * s;
-        dummy.rotation.set(tree.tint, angle, tree.tint * 0.3); dummy.scale.set(r, r * (tree.species === 0 ? 0.83 : 1.06), r); dummy.updateMatrix(); this.crowns.setMatrixAt(i * 4 + part, dummy.matrix);
+      for (let part = 0; part < 6; part++) {
+        const angle = part * 2.4 + tree.tint * 7, s = tree.scale;
+        const radius = part < 4 ? 1.05 : .4;
+        dummy.position.set(tree.x + Math.cos(angle) * radius * s, (2.9 + part * .27 + Math.sin(angle) * .18) * s, tree.z + Math.sin(angle) * radius * s);
+        const r = (1.02 + Math.sin(angle * 3) * .17) * s;
+        dummy.rotation.set(tree.tint * .6, angle, (tree.tint - .5) * .5); dummy.scale.set(r * 1.12, r * (tree.species === 0 ? .83 : 1.05), r); dummy.updateMatrix(); this.crowns.setMatrixAt(i * 6 + part, dummy.matrix);
       }
     });
     this.crowns.castShadow = this.crowns.receiveShadow = true; parent.add(this.crowns);
@@ -82,9 +91,9 @@ export class CampusFoliage {
     this.crownTrees.forEach((tree, i) => {
       const palette = season === 'spring' ? (tree.species === 0 ? '#e8b8ba' : '#a2b67b') : season === 'summer' ? (tree.species === 0 ? '#719c65' : '#557953') : season === 'autumn' ? (tree.species === 0 ? '#cf9861' : '#d9b34f') : '#80958d';
       this.target.set(palette).offsetHSL((tree.tint - 0.5) * 0.02, 0, (tree.tint - 0.5) * 0.09);
-      for (let j = 0; j < 4; j++) {
-        if (this.crowns.instanceColor) this.crowns.getColorAt(i * 4 + j, this.color); else this.color.copy(this.target);
-        this.color.lerp(this.target, t); this.crowns.setColorAt(i * 4 + j, this.color);
+      for (let j = 0; j < 6; j++) {
+        if (this.crowns.instanceColor) this.crowns.getColorAt(i * 6 + j, this.color); else this.color.copy(this.target);
+        this.color.lerp(this.target, t); this.crowns.setColorAt(i * 6 + j, this.color);
       }
     });
     this.crowns.instanceColor!.needsUpdate = true;
@@ -95,14 +104,19 @@ export class CampusFoliage {
   }
   private addWillows(parent: THREE.Group): void {
     const stems = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.17, 0.27, 3.6, 7), makeMat('#807555'), 2);
-    const curtains = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 7, 5), makeMat('#899f6d', true), 24);
+    const curve = new THREE.CatmullRomCurve3([new THREE.Vector3(.1, .1, 0), new THREE.Vector3(1.1, .25, 0), new THREE.Vector3(2, -.55, 0), new THREE.Vector3(2.2, -2.9, 0)]);
+    const frondMat = makeMat('#7e9860', true), baseShader = frondMat.onBeforeCompile;
+    frondMat.onBeforeCompile = (shader, renderer) => { baseShader.call(frondMat, shader, renderer); shader.uniforms.uWind = environmentUniforms.time; shader.vertexShader = 'uniform float uWind;\n' + shader.vertexShader; shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\ntransformed.z+=sin(uWind+instanceMatrix[3].x+position.y)*abs(position.y)*.07;'); };
+    frondMat.customProgramCacheKey = () => 'willow-wind';
+    const curtains = new THREE.InstancedMesh(new THREE.TubeGeometry(curve, 12, .12, 4), frondMat, 48);
     const d = new THREE.Object3D();
     [[-41, 28], [-20.5, 27.5]].forEach(([x, z], i) => {
       d.position.set(x, 1.8, z); d.scale.setScalar(1); d.updateMatrix(); stems.setMatrixAt(i, d.matrix);
-      for (let j = 0; j < 12; j++) {
-        const a = j / 12 * Math.PI * 2;
-        d.position.set(x + Math.cos(a) * 1.7, 3, z + Math.sin(a) * 1.7); d.scale.set(0.54, 1.9, 0.58); d.updateMatrix(); curtains.setMatrixAt(i * 12 + j, d.matrix);
+      for (let j = 0; j < 24; j++) {
+        const a = j / 24 * Math.PI * 2;
+        d.position.set(x, 4.1 + Math.sin(a * 3) * .2, z); d.rotation.y = a; d.scale.set(1, .85 + .15 * Math.sin(a), 1); d.updateMatrix(); curtains.setMatrixAt(i * 24 + j, d.matrix);
       }
+      d.rotation.y = 0;
     });
     stems.castShadow = curtains.castShadow = true; parent.add(stems, curtains);
   }
