@@ -10,7 +10,7 @@ for (let i = 0; i < 10; i++) {
   const theta = i / 10 * Math.PI * 2;
   coordinates.push([-29 + 12 * Math.cos(theta), -8 + 11 * Math.sin(theta)]);
 }
-coordinates.push([31, 7], [31, 0], [39, 0], [19, 33], [31, 33], [43, 33]);
+coordinates.push([25, 7], [25, 0], [40, 0], [19, 33], [31, 33], [43, 33], [40, 10]);
 export const pathNodes = coordinates.map(([x, z]) => new Vector3(x, 0.14, z));
 export const pathEdges: [number, number][] = [
   [0, 19], [19, 1], [1, 2], [2, 24], [24, 3], [3, 4], [4, 5], [5, 6],
@@ -19,7 +19,7 @@ export const pathEdges: [number, number][] = [
   [19, 20], [20, 21], [21, 22], [22, 23], [23, 24],
   [25, 26], [26, 27], [27, 28], [28, 29], [29, 30], [30, 31], [31, 32], [32, 33], [33, 34], [34, 25],
   [28, 1], [33, 7], [25, 13],
-  [5, 35], [35, 36], [36, 37], [4, 38], [38, 39], [39, 40],
+  [5, 35], [35, 36], [36, 37], [37, 41], [41, 5], [4, 38], [38, 39], [39, 40],
 ];
 export const adjacency: number[][] = pathNodes.map(() => []);
 for (const [a, b] of pathEdges) { adjacency[a].push(b); adjacency[b].push(a); }

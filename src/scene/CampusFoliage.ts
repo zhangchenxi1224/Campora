@@ -42,6 +42,9 @@ export class CampusFoliage {
       if (tree.species === 2) this.coniferTrees.push(tree); else this.crownTrees.push(tree);
     });
     trunks.castShadow = true; parent.add(trunks);
+    const branches=new THREE.InstancedMesh(new THREE.CylinderGeometry(.06,.13,1,6),makeMat('#796348'),trees.length*3),up=new THREE.Vector3(0,1,0),branchDirection=new THREE.Vector3();
+    trees.forEach((tree,i)=>{for(let j=0;j<3;j++){const angle=j*2.1+tree.tint*5;branchDirection.set(Math.cos(angle)*1.1,.95+j*.18,Math.sin(angle)*1.1).multiplyScalar(tree.scale);dummy.position.set(tree.x,1.7*tree.scale,tree.z).addScaledVector(branchDirection,.5);dummy.quaternion.setFromUnitVectors(up,branchDirection.clone().normalize());dummy.scale.set(tree.scale,branchDirection.length(),tree.scale);dummy.updateMatrix();branches.setMatrixAt(i*3+j,dummy.matrix);}});
+    branches.castShadow=true;parent.add(branches);
     const shadows = contactShadows(trees.length, .37);
     trees.forEach((tree, i) => { dummy.position.set(tree.x, .08, tree.z); dummy.rotation.set(0, 0, 0); dummy.scale.set(3.6 * tree.scale, 1, 3.6 * tree.scale); dummy.updateMatrix(); shadows.setMatrixAt(i, dummy.matrix); });
     parent.add(shadows);

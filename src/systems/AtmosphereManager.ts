@@ -1,11 +1,12 @@
 import * as THREE from 'three';
 import type { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { type Season, type TimeOfDay, seasonPresets, timePresets } from '../config/atmospherePresets';
+import { type Season, seasonPresets, daylightFrames } from '../config/atmospherePresets';
 import { environmentUniforms, updateEmissives, seededRandom } from '../materials/proceduralTextures';
 
 export class AtmosphereManager {
   season: Season = 'autumn';
-  timeOfDay: TimeOfDay = 'night';
+  timeOfDay = .94;
+  actualTime = .94;
   night = 1;
   readonly sun: THREE.DirectionalLight;
   private readonly ambient: THREE.HemisphereLight;
@@ -17,6 +18,8 @@ export class AtmosphereManager {
   private readonly cloudPositions: THREE.Vector3[] = [];
   private readonly cloudScales: THREE.Vector3[] = [];
   private readonly color = new THREE.Color();
+  private readonly colorB = new THREE.Color();
+  private readonly positionB = new THREE.Vector3();
   private readonly sunPosition = new THREE.Vector3();
   private readonly dummy = new THREE.Object3D();
   constructor(private scene: THREE.Scene, private renderer: THREE.WebGLRenderer, private bloom: UnrealBloomPass, private grass: THREE.MeshStandardMaterial, private lamps: THREE.PointLight[]) {
@@ -56,25 +59,24 @@ export class AtmosphereManager {
     this.clouds.frustumCulled = false; scene.add(this.clouds);
   }
   update(dt: number, time: number): void {
-    const s = seasonPresets[this.season], t = timePresets[this.timeOfDay], k = 1 - Math.exp(-dt * 3.6);
-    const night = this.timeOfDay === 'night', golden = this.timeOfDay === 'golden';
-    this.night = THREE.MathUtils.lerp(this.night, t.night, k);
-    environmentUniforms.time.value = time; environmentUniforms.night.value = this.night;
-    environmentUniforms.snow.value = THREE.MathUtils.lerp(environmentUniforms.snow.value, this.season === 'winter' ? 1 : 0, k);
-    this.sky.uniforms.top.value.lerp(this.color.set(night ? '#050814' : golden ? '#555775' : s.sky), k);
-    this.sky.uniforms.bottom.value.lerp(this.color.set(night ? '#0d152b' : golden ? '#cc9a7b' : s.horizon), k);
-    const fog = this.scene.fog as THREE.FogExp2;
-    fog.color.lerp(this.color.set(night ? '#101b31' : golden ? '#a18d89' : s.horizon), k);
-    fog.density = THREE.MathUtils.lerp(fog.density, night ? .006 : s.fog * .8, k);
-    this.sun.color.lerp(this.color.set(night ? '#91b7ec' : golden ? '#ffbd72' : s.sun), k);
-    this.sun.intensity = THREE.MathUtils.lerp(this.sun.intensity, night ? 1.7 : golden ? 2.7 : 2.8, k);
-    this.sun.position.lerp(this.sunPosition.set(-34, golden ? 19 : night ? 38 : 48, night ? -25 : 32), k);
-    this.ambient.intensity = THREE.MathUtils.lerp(this.ambient.intensity, night ? .48 : golden ? .72 : 1.25, k);
-    this.ambient.color.lerp(this.color.set(night ? '#7998be' : '#e5eddf'), k);
-    this.ambient.groundColor.lerp(this.color.set(night ? '#171c2a' : '#9d977e'), k);
-    this.grass.color.lerp(this.color.set(s.grass), k);
-    this.renderer.toneMappingExposure = THREE.MathUtils.lerp(this.renderer.toneMappingExposure, night ? 1.17 : golden ? 1.05 : 1.0, k);
-    this.bloom.strength = THREE.MathUtils.lerp(this.bloom.strength, night ? .55 : golden ? .24 : .11, k); this.bloom.threshold = .78; this.bloom.radius = .65;
+    const s=seasonPresets[this.season],k=1-Math.exp(-dt*3.6);
+    this.actualTime=THREE.MathUtils.lerp(this.actualTime,this.timeOfDay,1-Math.exp(-dt*9));
+    let index=0;while(index<daylightFrames.length-2&&this.actualTime>daylightFrames[index+1].at)index++;
+    const a=daylightFrames[index],b=daylightFrames[index+1],raw=THREE.MathUtils.clamp((this.actualTime-a.at)/(b.at-a.at),0,1),blend=raw*raw*(3-2*raw);
+    this.night=THREE.MathUtils.lerp(a.night,b.night,blend);
+    environmentUniforms.time.value=time;environmentUniforms.night.value=this.night;
+    environmentUniforms.snow.value=THREE.MathUtils.lerp(environmentUniforms.snow.value,this.season==='winter'?1:0,k);
+    this.color.set(a.sky||s.sky).lerp(this.colorB.set(b.sky||s.sky),blend);this.sky.uniforms.top.value.lerp(this.color,k);
+    this.color.set(a.horizon||s.horizon).lerp(this.colorB.set(b.horizon||s.horizon),blend);this.sky.uniforms.bottom.value.lerp(this.color,k);
+    const fog=this.scene.fog as THREE.FogExp2;fog.color.lerp(this.color,k);fog.density=THREE.MathUtils.lerp(fog.density,THREE.MathUtils.lerp(s.fog*.8,.006,this.night),k);
+    this.color.set(a.sun).lerp(this.colorB.set(b.sun),blend);this.sun.color.copy(this.color);this.sun.intensity=THREE.MathUtils.lerp(a.light,b.light,blend);
+    this.sunPosition.fromArray(a.position).lerp(this.positionB.fromArray(b.position),blend);this.sun.position.copy(this.sunPosition);
+    this.ambient.intensity=THREE.MathUtils.lerp(a.ambient,b.ambient,blend);
+    this.ambient.color.copy(this.color.set('#e5eddf').lerp(this.colorB.set('#7998be'),this.night));this.ambient.groundColor.copy(this.color.set('#9d977e').lerp(this.colorB.set('#171c2a'),this.night));
+    this.grass.color.lerp(this.color.set(s.grass),k);
+    this.renderer.toneMappingExposure=THREE.MathUtils.lerp(a.exposure,b.exposure,blend);
+    this.bloom.strength=THREE.MathUtils.lerp(.11,.55,this.night);this.bloom.threshold=.78;this.bloom.radius=.65;
+    const moonPhase=THREE.MathUtils.clamp((this.actualTime-.7)/.3,0,1);this.moon.position.set(-24,2+Math.sin(moonPhase*Math.PI)*5,-55);this.halo.position.copy(this.moon.position);
     updateEmissives(this.night);
     this.lamps.forEach((light, i) => light.intensity = this.night * (i < 3 ? 4.2 : 5.3));
     this.moon.material.opacity = Math.pow(this.night, 2);

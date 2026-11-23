@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { makeMat, glowMat, seededRandom, contactShadows, lampGlows } from '../materials/proceduralTextures';
+import { makeMat, glowMat, seededRandom, contactShadows, lampGlows, lawnTexture } from '../materials/proceduralTextures';
 import { pathNodes, pathEdges } from '../config/pathGraph';
 
 const random = seededRandom(42);
@@ -87,17 +87,11 @@ export function createDioramaBase(parent: THREE.Group): { lawn: THREE.Group; gra
 
   const lawn = new THREE.Group();
   lawn.position.set(0, 0, -4);
-  rounded(lawn, [34, 0.13, 20], [0, 0.025, 0], makeMat('#72945d', true), 0.06);
-  const patches = new THREE.InstancedMesh(new THREE.CircleGeometry(0.85, 9).rotateX(-Math.PI / 2), makeMat('#789762', true), 90);
+  const turf = makeMat('#789665', true);
+  turf.map = lawnTexture(); turf.bumpMap = turf.map; turf.bumpScale = .008; turf.roughness = .96; turf.metalness = 0;
+  const lawnGround = rounded(lawn, [34, .13, 20], [0, .025, 0], turf, .06);
+  lawnGround.name = 'velvet-turf';
   const dummy = new THREE.Object3D();
-  for (let i = 0; i < 90; i++) {
-    dummy.position.set((random() - 0.5) * 31, 0.1, (random() - 0.5) * 18);
-    dummy.scale.set(0.8 + random() * 3, 1, 0.7 + random() * 2);
-    dummy.updateMatrix(); patches.setMatrixAt(i, dummy.matrix);
-    patches.setColorAt(i, new THREE.Color().setHSL(0.24, 0.2, 0.75 + random() * 0.18));
-  }
-  patches.receiveShadow = true;
-  lawn.add(patches);
   const blanketColors = ['#d4a281', '#dfd3aa', '#9dafb5'];
   [[-9, -3], [8, 3], [-2, 5]].forEach(([x, z], i) => {
     const blanket = rounded(lawn, [2.5, 0.045, 1.8], [x, 0.16, z], makeMat(blanketColors[i]), 0.02);
@@ -138,7 +132,7 @@ export function createDioramaBase(parent: THREE.Group): { lawn: THREE.Group; gra
   const benchShadows = contactShadows(benches.length, .36);
   benches.forEach(([x, z, angle], i) => { dummy.position.set(x, .14, z); dummy.rotation.set(0, angle, 0); dummy.scale.set(4, 1, 2.4); dummy.updateMatrix(); benchShadows.setMatrixAt(i, dummy.matrix); });
   parent.add(benchShadows);
-  const lamps = [[0, 3, 38], [-27, 3, 18], [32, 4, 29], [0, 4, -20], [-28, 3.8, -1.8]].map(p => {
+  const lamps = [[0, 3, 38], [-27, 3, 18], [0, 4, -20], [-28, 3.8, -1.8]].map(p => {
     const light = new THREE.PointLight('#ffca83', 0, 4.2, 2); light.position.set(p[0], p[1], p[2]); parent.add(light); return light;
   });
   return { lawn, grassMaterial, lamps };

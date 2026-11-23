@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { N8AOPass } from 'n8ao';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { createDioramaBase } from './scene/DioramaBase';
@@ -16,16 +16,19 @@ import { CameraController } from './systems/CameraController';
 import { HudOverlay } from './ui/HudOverlay';
 import { SCENE_SCALE, landmarks, type LandmarkId, type FocusId } from './config/landmarks';
 import { pathNodes, pathEdges, shortestPath } from './config/pathGraph';
-import type { Season, TimeOfDay } from './config/atmospherePresets';
+import type { Season } from './config/atmospherePresets';
 import { createTeachingBuildings } from './scene/TeachingBuildings';
 import { createCinematicPass } from './systems/CinematicPass';
 import { contactShadows } from './materials/proceduralTextures';
-import '@fontsource/cormorant-garamond/latin-500.css';
+import { SculpturePlaza } from './scene/SculpturePlaza';
+import { GrassMeadow } from './scene/GrassMeadow';
+import { FocusPass } from './systems/FocusPass';
+import '@fontsource/cormorant-garamond/latin-600-italic.css';
 import './style.css';
 
 let atmosphere: AtmosphereManager | undefined;
 let cameraController: CameraController | undefined;
-let season: Season = 'autumn', timeOfDay: TimeOfDay = 'night';
+let season: Season = 'autumn', timeOfDay = .94;
 const hud = new HudOverlay(document.querySelector('#app')!, {
   season: value => { season = value; if (atmosphere) atmosphere.season = value; hud.updateSeason(season, timeOfDay); },
   time: value => { timeOfDay = value; if (atmosphere) atmosphere.timeOfDay = value; hud.updateSeason(season, timeOfDay); },
@@ -46,7 +49,7 @@ function init(): void {
   renderer.toneMappingExposure = 1.18;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(38, app.clientWidth / app.clientHeight, 0.5, 400);
+  const camera = new THREE.PerspectiveCamera(23, app.clientWidth / app.clientHeight, 0.5, 400);
   const campus = new THREE.Group();
   campus.scale.setScalar(SCENE_SCALE);
   scene.add(campus);
@@ -64,16 +67,24 @@ function init(): void {
   const contacts = contactShadows(footprints.length, .46), contactMatrix = new THREE.Object3D();
   footprints.forEach(([x, z, w, d], i) => { contactMatrix.position.set(x, .13, z); contactMatrix.scale.set(w, 1, d); contactMatrix.updateMatrix(); contacts.setMatrixAt(i, contactMatrix.matrix); });
   campus.add(contacts);
+  const sculpture = new SculpturePlaza(modelGroups.teaching, renderer);
+  const meadow = new GrassMeadow(base.lawn);
   const foliage = new CampusFoliage(campus);
   const npcs = new NPCSystem(campus);
   const particles = new ParticleSystem(campus);
   addContactShadow(scene);
   const composer = new EffectComposer(renderer);
-  composer.addPass(new RenderPass(scene, camera));
+  const ao = new N8AOPass(scene, camera, app.clientWidth, app.clientHeight);
+  ao.autoDetectTransparency = false; ao.configuration.transparencyAware = false;
+  ao.setQualityMode('Performance'); ao.configuration.halfRes = true; ao.configuration.gammaCorrection = false;
+  ao.configuration.aoRadius = .65; ao.configuration.distanceFalloff = .8; ao.configuration.intensity = 1.65; ao.configuration.color = new THREE.Color('#07101b');
+  composer.addPass(ao);
   const bloom = new UnrealBloomPass(new THREE.Vector2(app.clientWidth, app.clientHeight), 0.1, 0.6, 0.82);
   composer.addPass(bloom);
+  const focusPass = new FocusPass(camera); composer.addPass(focusPass);
   composer.addPass(createCinematicPass());
   composer.addPass(new OutputPass());
+  bloom.setSize(Math.round(app.clientWidth * renderer.getPixelRatio() * .5), Math.round(app.clientHeight * renderer.getPixelRatio() * .5));
   atmosphere = new AtmosphereManager(scene, renderer, bloom, base.grassMaterial, base.lamps);
   atmosphere.season = season; atmosphere.timeOfDay = timeOfDay;
   cameraController = new CameraController(camera, hud.canvas, () => { hud.badge.hidden = true; });
@@ -116,12 +127,13 @@ function init(): void {
   });
   window.addEventListener('resize', () => {
     camera.aspect = app.clientWidth / app.clientHeight; camera.updateProjectionMatrix();
-    renderer.setPixelRatio(Math.max(0.75, Math.min(window.devicePixelRatio, 2) * resolutionScale)); renderer.setSize(app.clientWidth, app.clientHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); renderer.setSize(app.clientWidth, app.clientHeight);
     composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(app.clientWidth, app.clientHeight);
+    bloom.setSize(Math.round(app.clientWidth * renderer.getPixelRatio() * .5), Math.round(app.clientHeight * renderer.getPixelRatio() * .5));
     cameraController!.resize();
   });
   let lastTime = performance.now(), elapsed = 0, fps = 60, frameCount = 0, frameDuration = 0, paused = false;
-  let shadowFrame = 0, slowSeconds = 0, resolutionScale = 1;
+  let shadowFrame = 0;
   document.addEventListener('visibilitychange', () => { paused = document.hidden; lastTime = performance.now(); });
   hud.canvas.addEventListener('webglcontextlost', event => { event.preventDefault(); paused = true; app.dataset.renderStatus = 'context-lost'; });
   hud.canvas.addEventListener('webglcontextrestored', () => window.location.reload());
@@ -133,21 +145,18 @@ function init(): void {
     frameCount++; frameDuration += rawDelta;
     if (frameDuration > 1) {
       fps = Math.round(frameCount / frameDuration); frameCount = 0; frameDuration = 0;
-      slowSeconds = fps < 55 ? slowSeconds + 1 : 0;
-      if (slowSeconds >= 3 && renderer.getPixelRatio() > 0.75) {
-        resolutionScale *= 0.82;
-        renderer.setPixelRatio(Math.max(0.75, Math.min(window.devicePixelRatio, 2) * resolutionScale));
-        composer.setPixelRatio(renderer.getPixelRatio());
-        slowSeconds = 0;
-      }
     }
     if (++shadowFrame % 5 === 0) renderer.shadowMap.needsUpdate = true;
     atmosphere!.update(dt, elapsed);
     foliage.update(elapsed, dt, season);
+    meadow.update(dt, season, camera);
     npcs.update(dt, elapsed);
     particles.update(elapsed, dt, season, atmosphere!.night);
     updateYanyuan(elapsed, atmosphere!.night, season);
-    cameraController!.update(dt);
+    cameraController!.update(Math.min(rawDelta, .1));
+    focusPass.updateFocus(cameraController!.focalDepth, cameraController!.focus === 'overview', cameraController!.flying, renderer.getPixelRatio());
+    focusPass.uniforms.tDepth.value = ao.beautyRenderTarget.depthTexture;
+    sculpture.update(elapsed, timeOfDay, season, renderer, scene);
     if (elapsed - lastRay > 0.08) {
       lastRay = elapsed; hover = raycast();
       hud.canvas.style.cursor = dragging ? 'grabbing' : hover ? 'pointer' : 'grab';
@@ -173,16 +182,16 @@ function init(): void {
     composer.render();
   });
   const diagnostics = () => ({
-    version: 2, season, timeOfDay, zen: hud.zen, teachingWindows: modelGroups.teaching.userData.windowCount, focus: cameraController!.focus, treeCount: foliage.count, npcCount: npcs.count,
+    version: 3, season, timeOfDay, actualTime: atmosphere!.actualTime, sunPosition: atmosphere!.sun.position.toArray(), seeds: sculpture.seedCount, environmentCaptures: sculpture.captureCount, grassBlades: meadow.count, aoEnabled: ao.enabled, focalDistance: cameraController!.focalDistance, zen: hud.zen, teachingWindows: modelGroups.teaching.userData.windowCount, focus: cameraController!.focus, treeCount: foliage.count, npcCount: npcs.count,
     windows: modelGroups.guanghua.userData.windowCount, graphNodes: pathNodes.length, graphEdges: pathEdges.length,
     graphConnected: pathNodes.every((_, i) => shortestPath(0, i).at(-1) === i && (i === 0 || shortestPath(0, i).length > 1)),
-    fps, pixelRatio: renderer.getPixelRatio(), drawCalls: renderer.info.render.calls,
+    fps, pixelRatio: renderer.getPixelRatio(), nativePixelRatio: Math.min(window.devicePixelRatio, 2), renderSize: [hud.canvas.width, hud.canvas.height], focusBand: focusPass.uniforms.focusBand.value, blurRadius: focusPass.uniforms.maxBlur.value, focalDepth: cameraController!.focalDepth, drawCalls: renderer.info.render.calls,
     snow: season === 'winter', night: atmosphere!.night, elapsed,
     npcPositions: npcs.walkers.map(w => [Number(w.position.x.toFixed(2)), Number(w.position.z.toFixed(2))]),
-    camera: { position: camera.position.toArray(), target: cameraController!.controls.target.toArray(), zoom: camera.zoom, fov: camera.fov, flying: cameraController!.flying, progress: cameraController!.flightProgress, sweep: cameraController!.sweepDegrees },
+    camera: { position: camera.position.toArray(), target: cameraController!.controls.target.toArray(), zoom: camera.zoom, fov: camera.fov, flying: cameraController!.flying, progress: cameraController!.flightProgress, sweep: cameraController!.sweepDegrees, opticalScale: cameraController!.opticalScale, angularTravel: cameraController!.angularTravel },
     landmarks: landmarks.map(l => { const p = new THREE.Vector3(...l.position).multiplyScalar(SCENE_SCALE).project(camera); return { id: l.id, x: (p.x * 0.5 + 0.5) * app.clientWidth, y: (-p.y * 0.5 + 0.5) * app.clientHeight }; }),
   });
-  Object.defineProperty(window, '__campus', { value: Object.freeze({ diagnostics }), configurable: true });
+  Object.defineProperty(window, '__campus', { value: Object.freeze({ diagnostics, debug: { ao, composer, focusPass, bloom, renderer, scene, camera } }), configurable: true });
   app.dataset.renderStatus = 'ready';
   hud.ready();
 }

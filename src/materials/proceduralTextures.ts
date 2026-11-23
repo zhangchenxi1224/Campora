@@ -111,6 +111,21 @@ export function lampGlows(parent: THREE.Group, positions: [number, number, numbe
   mesh.frustumCulled = false; mesh.raycast = () => {}; parent.add(mesh);
 }
 
+export function lawnTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas'); canvas.width = canvas.height = 512;
+  const ctx = canvas.getContext('2d')!, image = ctx.createImageData(512, 512), random = seededRandom(8193);
+  for (let y = 0; y < 512; y++) for (let x = 0; x < 512; x++) {
+    const cloud = Math.sin(x * .021 + Math.sin(y * .013)) * 3 + Math.cos(y * .028 + x * .007) * 2;
+    const grain = (random() - .5) * 5;
+    const shade = Math.round(236 + cloud + grain);
+    image.data.set([shade, shade, shade, 255], (y * 512 + x) * 4);
+  }
+  ctx.putImageData(image, 0, 0);
+  const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping; texture.repeat.set(4, 3); texture.anisotropy = 8;
+  return texture;
+}
+
 export function seededRandom(seed: number): () => number {
   return () => {
     seed = (seed * 16807) % 2147483647;

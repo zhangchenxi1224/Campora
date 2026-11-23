@@ -11,6 +11,8 @@
   "dependencies": {
     "@fontsource/cormorant-garamond": "^5.3.0",
     "@fontsource/ma-shan-zheng": "^5.3.1",
+    "@fontsource/zcool-xiaowei": "^5.3.0",
+    "n8ao": "^2.1.0",
     "three": "^0.181.1"
   },
   "devDependencies": {
